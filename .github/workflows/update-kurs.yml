@@ -1,4 +1,4 @@
-name: cryptspy
+name: spycrypt
 
 on:
   schedule:
