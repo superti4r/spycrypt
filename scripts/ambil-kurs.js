@@ -2,9 +2,14 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 
-const DATA_PATH = path.join(__dirname, "..", "data", "harga.json");
-const CSV_PATH = path.join(__dirname, "..", "data", "riwayat.csv");
+const DATA_DIR = path.join(__dirname, "..", "data");
+const DATA_PATH = path.join(DATA_DIR, "harga.json");
+const CSV_PATH = path.join(DATA_DIR, "riwayat.csv");
 const README_PATH = path.join(__dirname, "..", "README.md");
+
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
 function formatRupiah(angka) {
   return new Intl.NumberFormat("id-ID", {
@@ -30,7 +35,9 @@ function generateChartURL(timestamps, values, label) {
       ],
     },
   };
-  return `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chart))}`;
+  return `https://quickchart.io/chart?c=${encodeURIComponent(
+    JSON.stringify(chart)
+  )}`;
 }
 
 function updateRiwayatCSV(harga, waktu) {
@@ -43,16 +50,13 @@ function updateRiwayatCSV(harga, waktu) {
   ].join(",");
 
   if (!fs.existsSync(CSV_PATH)) {
-    fs.writeFileSync(
-      CSV_PATH,
-      "timestamp,bitcoin,ethereum,solana,usdt\n"
-    );
+    fs.writeFileSync(CSV_PATH, "timestamp,bitcoin,ethereum,solana,usdt\n");
   }
 
-  const existing = fs.readFileSync(CSV_PATH, "utf-8").split("\n");
-  const last = existing[existing.length - 1];
+  const existing = fs.readFileSync(CSV_PATH, "utf-8").trim().split("\n");
+  const lastTimestamp = existing.length > 1 ? existing[existing.length - 1].split(",")[0] : null;
 
-  if (!last.includes(harga.bitcoin)) {
+  if (lastTimestamp !== waktu) {
     fs.appendFileSync(CSV_PATH, row + "\n");
     console.log("📊 Riwayat harga diperbarui.");
   }
@@ -64,9 +68,12 @@ function updateReadme(harga, waktu) {
   });
 
   const lines = fs.readFileSync(CSV_PATH, "utf-8").trim().split("\n").slice(-11);
-  const timestamps = lines.slice(1).map((l) => l.split(",")[0].slice(11, 19));
-  const btc = lines.slice(1).map((l) => l.split(",")[1]);
-  const eth = lines.slice(1).map((l) => l.split(",")[2]);
+
+  const timestamps = lines
+    .slice(1)
+    .map((l) => l.split(",")[0].slice(11, 19));
+  const btc = lines.slice(1).map((l) => Number(l.split(",")[1]));
+  const eth = lines.slice(1).map((l) => Number(l.split(",")[2]));
 
   const chartBtcUrl = generateChartURL(timestamps, btc, "Bitcoin");
   const chartEthUrl = generateChartURL(timestamps, eth, "Ethereum");
@@ -96,7 +103,7 @@ function updateReadme(harga, waktu) {
 `.trim();
 
   let readme = fs.readFileSync(README_PATH, "utf-8");
-  const regex = /<!-- HARGA_KRIPTO -->(.*?)<!-- \/HARGA_KRIPTO -->/s;
+  const regex = /<!-- HARGA_KRIPTO -->([\s\S]*?)<!-- \/HARGA_KRIPTO -->/;
 
   if (regex.test(readme)) {
     readme = readme.replace(regex, konten);
@@ -142,11 +149,12 @@ async function ambilKurs() {
       fs.writeFileSync(DATA_PATH, JSON.stringify(dataBaru, null, 2));
       updateRiwayatCSV(dataBaru.harga, dataBaru.waktu);
       updateReadme(dataBaru.harga, dataBaru.waktu);
+      console.log("Harga diperbarui dan README diupdate.");
     } else {
-      console.log("ℹ️ Tidak ada perubahan harga.");
+      console.log("ℹTidak ada perubahan harga.");
     }
   } catch (err) {
-    console.error("❌ Gagal mengambil data:", err.message);
+    console.error("Gagal mengambil data:", err.message);
     process.exit(1);
   }
 }
