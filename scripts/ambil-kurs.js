@@ -127,6 +127,16 @@ async function ambilKurs() {
       }
     );
 
+    if (
+      !response.data ||
+      !response.data.bitcoin ||
+      !response.data.ethereum ||
+      !response.data.solana ||
+      !response.data.tether
+    ) {
+      throw new Error("Data API tidak lengkap");
+    }
+
     const dataBaru = {
       waktu: new Date().toISOString(),
       harga: {
@@ -139,7 +149,18 @@ async function ambilKurs() {
 
     let dataLama = {};
     if (fs.existsSync(DATA_PATH)) {
-      dataLama = JSON.parse(fs.readFileSync(DATA_PATH, "utf-8"));
+      try {
+        const fileContent = fs.readFileSync(DATA_PATH, "utf-8").trim();
+        if (fileContent === "") {
+          console.warn("⚠️ harga.json kosong, menggunakan data kosong.");
+          dataLama = {};
+        } else {
+          dataLama = JSON.parse(fileContent);
+        }
+      } catch (e) {
+        console.error("⚠️ Gagal parse harga.json, menggunakan data kosong:", e.message);
+        dataLama = {};
+      }
     }
 
     const hargaLama = JSON.stringify(dataLama.harga || {});
@@ -149,12 +170,12 @@ async function ambilKurs() {
       fs.writeFileSync(DATA_PATH, JSON.stringify(dataBaru, null, 2));
       updateRiwayatCSV(dataBaru.harga, dataBaru.waktu);
       updateReadme(dataBaru.harga, dataBaru.waktu);
-      console.log("Harga diperbarui dan README diupdate.");
+      console.log("✅ Harga diperbarui dan README diupdate.");
     } else {
-      console.log("ℹTidak ada perubahan harga.");
+      console.log("ℹ️ Tidak ada perubahan harga.");
     }
   } catch (err) {
-    console.error("Gagal mengambil data:", err.message);
+    console.error("❌ Gagal mengambil data:", err.message);
     process.exit(1);
   }
 }
