@@ -1,0 +1,25 @@
+{
+  "name": "cryptspy",
+  "version": "1.0.0",
+  "description": "Pemantau otomatis kurs BTC, ETH, SOL, dan USDT menggunakan GitHub Actions",
+  "main": "scripts/ambil-kurs.js",
+  "scripts": {
+    "start": "node scripts/ambil-kurs.js"
+  },
+  "keywords": [
+    "crypto",
+    "kurs",
+    "bitcoin",
+    "ethereum",
+    "solana",
+    "usdt",
+    "coingecko",
+    "github-actions",
+    "otomatis"
+  ],
+  "author": "superti4r",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
