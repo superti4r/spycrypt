@@ -25,9 +25,11 @@ jobs:
         run: node scripts/ambil-kurs.js
 
       - name: Commit & Push jika ada perubahan
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add .
           git diff --cached --quiet || git commit -m "Update Harga Terbaru"
-          git push
+          git push https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
