@@ -19,38 +19,18 @@ function formatRupiah(angka) {
   }).format(angka);
 }
 
-function generateChartURL(timestamps, values, label) {
-  const chart = {
-    type: "line",
-    data: {
-      labels: timestamps,
-      datasets: [
-        {
-          label: label,
-          data: values,
-          fill: false,
-          borderColor: "blue",
-          tension: 0.1,
-        },
-      ],
-    },
-  };
-  return `https://quickchart.io/chart?c=${encodeURIComponent(
-    JSON.stringify(chart)
-  )}`;
-}
-
-function updateRiwayatCSV(harga, waktu) {
+function updateRiwayatCSV(harga, waktu, kurs) {
   const row = [
     waktu,
     harga.bitcoin,
     harga.ethereum,
     harga.solana,
     harga.usdt,
+    kurs,
   ].join(",");
 
   if (!fs.existsSync(CSV_PATH)) {
-    fs.writeFileSync(CSV_PATH, "timestamp,bitcoin,ethereum,solana,usdt\n");
+    fs.writeFileSync(CSV_PATH, "timestamp,bitcoin,ethereum,solana,usdt,usd_idr\n");
   }
 
   const existing = fs.readFileSync(CSV_PATH, "utf-8").trim().split("\n");
@@ -62,21 +42,10 @@ function updateRiwayatCSV(harga, waktu) {
   }
 }
 
-function updateReadme(harga, waktu) {
+function updateReadme(harga, waktu, kurs) {
   const waktuLokal = new Date(waktu).toLocaleString("id-ID", {
     timeZone: "Asia/Jakarta",
   });
-
-  const lines = fs.readFileSync(CSV_PATH, "utf-8").trim().split("\n").slice(-11);
-
-  const timestamps = lines
-    .slice(1)
-    .map((l) => l.split(",")[0].slice(11, 19));
-  const btc = lines.slice(1).map((l) => Number(l.split(",")[1]));
-  const eth = lines.slice(1).map((l) => Number(l.split(",")[2]));
-
-  const chartBtcUrl = generateChartURL(timestamps, btc, "Bitcoin");
-  const chartEthUrl = generateChartURL(timestamps, eth, "Ethereum");
 
   const konten = `
 <!-- HARGA_KRIPTO -->
@@ -89,16 +58,9 @@ function updateReadme(harga, waktu) {
 | 🟣 Solana (SOL)    | ${formatRupiah(harga.solana)} |
 | 🟢 Tether (USDT)   | ${formatRupiah(harga.usdt)} |
 
+💱 **Kurs Rupiah (USD/IDR)**: ${formatRupiah(kurs)}
+
 <sub>Terakhir diperbarui: ${waktuLokal}</sub>
-
----
-
-#### 📉 Grafik Harga BTC (10 update terakhir)
-![BTC Chart](${chartBtcUrl})
-
-#### 📉 Grafik Harga ETH (10 update terakhir)
-![ETH Chart](${chartEthUrl})
-
 <!-- /HARGA_KRIPTO -->
 `.trim();
 
@@ -117,7 +79,7 @@ function updateReadme(harga, waktu) {
 
 async function ambilKurs() {
   try {
-    const response = await axios.get(
+    const hargaKriptoRes = await axios.get(
       "https://api.coingecko.com/api/v3/simple/price",
       {
         params: {
@@ -127,55 +89,50 @@ async function ambilKurs() {
       }
     );
 
-    if (
-      !response.data ||
-      !response.data.bitcoin ||
-      !response.data.ethereum ||
-      !response.data.solana ||
-      !response.data.tether
-    ) {
-      throw new Error("Data API tidak lengkap");
+    const kursRes = await axios.get(
+      "https://api.exchangerate.host/latest?base=USD&symbols=IDR"
+    );
+
+    const kursRupiah = kursRes.data?.rates?.IDR;
+
+    if (!hargaKriptoRes.data || !kursRupiah) {
+      throw new Error("Data tidak lengkap dari API.");
     }
 
     const dataBaru = {
       waktu: new Date().toISOString(),
       harga: {
-        bitcoin: response.data.bitcoin.idr,
-        ethereum: response.data.ethereum.idr,
-        solana: response.data.solana.idr,
-        usdt: response.data.tether.idr,
+        bitcoin: hargaKriptoRes.data.bitcoin.idr,
+        ethereum: hargaKriptoRes.data.ethereum.idr,
+        solana: hargaKriptoRes.data.solana.idr,
+        usdt: hargaKriptoRes.data.tether.idr,
       },
+      kurs: kursRupiah,
     };
 
     let dataLama = {};
     if (fs.existsSync(DATA_PATH)) {
       try {
         const fileContent = fs.readFileSync(DATA_PATH, "utf-8").trim();
-        if (fileContent === "") {
-          console.warn("⚠️ harga.json kosong, menggunakan data kosong.");
-          dataLama = {};
-        } else {
-          dataLama = JSON.parse(fileContent);
-        }
-      } catch (e) {
-        console.error("⚠️ Gagal parse harga.json, menggunakan data kosong:", e.message);
-        dataLama = {};
+        dataLama = fileContent ? JSON.parse(fileContent) : {};
+      } catch {
+        console.warn("⚠️ Gagal membaca harga.json, akan ditimpa.");
       }
     }
 
     const hargaLama = JSON.stringify(dataLama.harga || {});
     const hargaBaru = JSON.stringify(dataBaru.harga);
 
-    if (hargaLama !== hargaBaru) {
+    if (hargaLama !== hargaBaru || dataLama.kurs !== dataBaru.kurs) {
       fs.writeFileSync(DATA_PATH, JSON.stringify(dataBaru, null, 2));
-      updateRiwayatCSV(dataBaru.harga, dataBaru.waktu);
-      updateReadme(dataBaru.harga, dataBaru.waktu);
-      console.log("✅ Harga diperbarui dan README diupdate.");
+      updateRiwayatCSV(dataBaru.harga, dataBaru.waktu, dataBaru.kurs);
+      updateReadme(dataBaru.harga, dataBaru.waktu, dataBaru.kurs);
+      console.log("Harga dan kurs diperbarui.");
     } else {
-      console.log("ℹ️ Tidak ada perubahan harga.");
+      console.log("Tidak ada perubahan harga atau kurs.");
     }
   } catch (err) {
-    console.error("❌ Gagal mengambil data:", err.message);
+    console.error("Gagal mengambil data:", err.message);
     process.exit(1);
   }
 }
