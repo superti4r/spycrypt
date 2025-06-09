@@ -30,11 +30,15 @@ function updateRiwayatCSV(harga, waktu, kurs) {
   ].join(",");
 
   if (!fs.existsSync(CSV_PATH)) {
-    fs.writeFileSync(CSV_PATH, "timestamp,bitcoin,ethereum,solana,usdt,usd_idr\n");
+    fs.writeFileSync(
+      CSV_PATH,
+      "timestamp,bitcoin,ethereum,solana,usdt,usd_idr\n"
+    );
   }
 
   const existing = fs.readFileSync(CSV_PATH, "utf-8").trim().split("\n");
-  const lastTimestamp = existing.length > 1 ? existing[existing.length - 1].split(",")[0] : null;
+  const lastTimestamp =
+    existing.length > 1 ? existing[existing.length - 1].split(",")[0] : null;
 
   if (lastTimestamp !== waktu) {
     fs.appendFileSync(CSV_PATH, row + "\n");
@@ -49,18 +53,26 @@ function updateReadme(harga, waktu, kurs) {
 
   const konten = `
 <!-- HARGA_KRIPTO -->
-### 📈 Harga Kripto Terbaru (dalam Rupiah)
+## 📈 Harga Kripto Terbaru
 
-| Koin     | Harga         |
-|----------|---------------|
-| 🟠 Bitcoin (BTC)   | ${formatRupiah(harga.bitcoin)} |
-| 🔵 Ethereum (ETH)  | ${formatRupiah(harga.ethereum)} |
-| 🟣 Solana (SOL)    | ${formatRupiah(harga.solana)} |
-| 🟢 Tether (USDT)   | ${formatRupiah(harga.usdt)} |
+> Data ini diperbarui secara otomatis menggunakan [CoinGecko API](https://www.coingecko.com/) dan [exchangerate.host](https://exchangerate.host/)
 
-💱 **Kurs Rupiah (USD/IDR)**: ${formatRupiah(kurs)}
+<div align="center">
 
-<sub>Terakhir diperbarui: ${waktuLokal}</sub>
+| 🪙 Token | 💰 Harga (IDR) |
+|:------:|---------------:|
+| 🟠 **Bitcoin (BTC)**   | ${formatRupiah(harga.bitcoin)} |
+| 🔵 **Ethereum (ETH)**  | ${formatRupiah(harga.ethereum)} |
+| 🟣 **Solana (SOL)**    | ${formatRupiah(harga.solana)} |
+| 🟢 **Tether (USDT)**   | ${formatRupiah(harga.usdt)} |
+
+---
+
+💱 **Kurs Rupiah (USD → IDR)**: ${formatRupiah(kurs)}
+
+🕒 <sub>Terakhir diperbarui: ${waktuLokal}</sub>
+
+</div>
 <!-- /HARGA_KRIPTO -->
 `.trim();
 
@@ -83,29 +95,36 @@ async function ambilKurs() {
       "https://api.coingecko.com/api/v3/simple/price",
       {
         params: {
-          ids: "bitcoin,ethereum,solana,tether",
+          ids: "bitcoin,ethereum,solana,tether,usd",
           vs_currencies: "idr",
         },
       }
     );
 
-    const kursRes = await axios.get(
-      "https://api.exchangerate.host/latest?base=USD&symbols=IDR"
-    );
+    const data = hargaKriptoRes.data;
+    const kursRupiah = data?.usd?.idr;
 
-    const kursRupiah = kursRes.data?.rates?.IDR;
-
-    if (!hargaKriptoRes.data || !kursRupiah) {
+    if (
+      !data?.bitcoin?.idr ||
+      !data?.ethereum?.idr ||
+      !data?.solana?.idr ||
+      !data?.tether?.idr ||
+      !kursRupiah
+    ) {
+      console.error("Respon API tidak lengkap:", {
+        harga: data,
+        kurs: kursRupiah,
+      });
       throw new Error("Data tidak lengkap dari API.");
     }
 
     const dataBaru = {
       waktu: new Date().toISOString(),
       harga: {
-        bitcoin: hargaKriptoRes.data.bitcoin.idr,
-        ethereum: hargaKriptoRes.data.ethereum.idr,
-        solana: hargaKriptoRes.data.solana.idr,
-        usdt: hargaKriptoRes.data.tether.idr,
+        bitcoin: data.bitcoin.idr,
+        ethereum: data.ethereum.idr,
+        solana: data.solana.idr,
+        usdt: data.tether.idr,
       },
       kurs: kursRupiah,
     };
@@ -127,12 +146,12 @@ async function ambilKurs() {
       fs.writeFileSync(DATA_PATH, JSON.stringify(dataBaru, null, 2));
       updateRiwayatCSV(dataBaru.harga, dataBaru.waktu, dataBaru.kurs);
       updateReadme(dataBaru.harga, dataBaru.waktu, dataBaru.kurs);
-      console.log("Harga dan kurs diperbarui.");
+      console.log("✅ Harga dan kurs diperbarui.");
     } else {
-      console.log("Tidak ada perubahan harga atau kurs.");
+      console.log("ℹ️ Tidak ada perubahan harga atau kurs.");
     }
   } catch (err) {
-    console.error("Gagal mengambil data:", err.message);
+    console.error("❌ Gagal mengambil data:", err.message);
     process.exit(1);
   }
 }
