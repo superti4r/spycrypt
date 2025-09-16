@@ -9,16 +9,16 @@
 
 | 🪙 Token | 💰 Harga (IDR) |
 |:------:|---------------:|
-| 🟠 **Bitcoin (BTC)**   | Rp 1.914.802.208 |
-| 🔵 **Ethereum (ETH)**  | Rp 73.596.409 |
-| 🟣 **Solana (SOL)**    | Rp 3.903.425 |
-| 🟢 **Tether (USDT)**   | Rp 16.406 |
+| 🟠 **Bitcoin (BTC)**   | Rp 1.917.503.162 |
+| 🔵 **Ethereum (ETH)**  | Rp 73.686.274 |
+| 🟣 **Solana (SOL)**    | Rp 3.904.704 |
+| 🟢 **Tether (USDT)**   | Rp 16.408 |
 
 ---
 
-💱 **Kurs Rupiah (USD → IDR)**: Rp 16.396
+💱 **Kurs Rupiah (USD → IDR)**: Rp 16.404
 
-🕒 <sub>Terakhir diperbarui: 17/9/2025, 02.55.18</sub>
+🕒 <sub>Terakhir diperbarui: 17/9/2025, 03.13.40</sub>
 
 </div>
 <!-- /HARGA_KRIPTO -->
